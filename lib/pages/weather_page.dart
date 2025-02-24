@@ -1,95 +1,89 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:weather_app/models/weather_model.dart';
 import 'package:weather_app/services/weather_service.dart';
 
 class WeatherPage extends StatefulWidget {
-  const WeatherPage({super.key});
+  const WeatherPage({Key? key}) : super(key: key);
 
   @override
-  State<WeatherPage> createState() => _WeatherPageState();
+  _WeatherPageState createState() => _WeatherPageState();
 }
 
 class _WeatherPageState extends State<WeatherPage> {
-  final _weatherService = WeatherService('[Weather API KEY]');
+  final WeatherService _weatherService = WeatherService();
   Weather? _weather;
-
-  _fetchWeather() async {
-    String cityName = await _weatherService.getCurrentCity();
-
-    try {
-      final weather = await _weatherService.getWeather(cityName);
-      setState(() {
-        _weather = weather;
-      });
-    } catch (e) {
-      print(e);
-    }
-  }
-
-  String getWeatherAnimation(String? mainCondition) {
-    if (mainCondition == null) return 'assets/sun.json';
-
-    switch (mainCondition.toLowerCase()) {
-      case 'clouds':
-        return 'assets/cloud.json';
-      case 'mist':
-        return 'assets/mist.json';
-      case 'smoke':
-        return 'assets/smoke.json';
-      case 'haze':
-        return 'assets/haze.json';
-      case 'dust':
-        return 'assets/dust.json';
-      case 'fog':
-        return 'assets/fog.json';
-
-      default:
-        return 'assets/sun.json';
-    }
-  }
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-
     _fetchWeather();
   }
 
+  Future<void> _fetchWeather() async {
+    try {
+      final weather = await _weatherService.getWeather('Paris');
+      setState(() {
+        _weather = weather;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  String getWeatherAnimation(int weatherCode) {
+    if (weatherCode >= 0 && weatherCode <= 3) {
+      return 'assets/sun.json';
+    } else if (weatherCode >= 45 && weatherCode <= 48) {
+      return 'assets/halfsun.json';
+    } else if (weatherCode >= 51 && weatherCode <= 82) {
+      return 'assets/cloud.json';
+    } else if (weatherCode >= 95 && weatherCode <= 99) {
+      return 'assets/thunder.json';
+    } else {
+      return 'assets/cloud.json';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Colors.grey[900],
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              //city
-              Text(
-                _weather?.cityName ?? "...loading city",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 30),
-              ),
-
-              //Assets
-              Lottie.asset(getWeatherAnimation('sun')),
-
-              //temprature
-              Text(
-                '${_weather?.temperature.round()}°C',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 30),
-              ),
-
-              //maincondition
-              // Text('${_weather?.mainCondition}'),
-            ],
-          ),
-        ));
+      backgroundColor: Colors.grey[900],
+      body: Center(
+        child: _isLoading
+            ? const CircularProgressIndicator()
+            : _weather != null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _weather!.cityName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 30,
+                        ),
+                      ),
+                      Lottie.asset(getWeatherAnimation(_weather!.weatherCode)),
+                      Text(
+                        '${_weather!.temperature.round()}°C',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 30,
+                        ),
+                      ),
+                    ],
+                  )
+                : const Text(
+                    'No Data',
+                    style: TextStyle(color: Colors.white),
+                  ),
+      ),
+    );
   }
 }
