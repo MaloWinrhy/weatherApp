@@ -14,16 +14,33 @@ class _WeatherPageState extends State<WeatherPage> {
   final WeatherService _weatherService = WeatherService();
   Weather? _weather;
   bool _isLoading = true;
+  String _errorMessage = '';
+  bool _isDarkMode = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchWeather();
+    _setInitialTheme();
+    _fetchWeatherFromLocation();
   }
 
-  Future<void> _fetchWeather() async {
+  // Cette méthode définit le thème initial en fonction de l'heure actuelle.
+  void _setInitialTheme() {
+    int hour = DateTime.now().hour;
+    setState(() {
+      _isDarkMode = (hour < 7 || hour > 19);
+    });
+  }
+
+  // Cette méthode récupère les informations météorologiques à partir de la localisation actuelle.
+  Future<void> _fetchWeatherFromLocation() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
     try {
-      final weather = await _weatherService.getWeather('Paris');
+      final weather = await _weatherService.getWeatherFromCurrentLocation();
       setState(() {
         _weather = weather;
         _isLoading = false;
@@ -31,10 +48,12 @@ class _WeatherPageState extends State<WeatherPage> {
     } catch (e) {
       setState(() {
         _isLoading = false;
+        _errorMessage = e.toString();
       });
     }
   }
 
+  // Cette méthode retourne l'animation appropriée en fonction du code météo.
   String getWeatherAnimation(int weatherCode) {
     if (weatherCode >= 0 && weatherCode <= 3) {
       return 'assets/sun.json';
@@ -52,37 +71,64 @@ class _WeatherPageState extends State<WeatherPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900],
+      backgroundColor: _isDarkMode ? Colors.black : Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.location_on, color: Colors.white),
+          onPressed: _fetchWeatherFromLocation,
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isDarkMode ? Icons.dark_mode : Icons.light_mode,
+              color: _isDarkMode ? Colors.white : Colors.black,
+            ),
+            onPressed: () {
+              setState(() {
+                _isDarkMode = !_isDarkMode;
+              });
+            },
+          ),
+        ],
+      ),
       body: Center(
         child: _isLoading
             ? const CircularProgressIndicator()
-            : _weather != null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _weather!.cityName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 30,
-                        ),
-                      ),
-                      Lottie.asset(getWeatherAnimation(_weather!.weatherCode)),
-                      Text(
-                        '${_weather!.temperature.round()}°C',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 30,
-                        ),
-                      ),
-                    ],
+            : _errorMessage.isNotEmpty
+                ? Text(
+                    _errorMessage,
+                    style: const TextStyle(color: Colors.red, fontSize: 18),
+                    textAlign: TextAlign.center,
                   )
-                : const Text(
-                    'No Data',
-                    style: TextStyle(color: Colors.white),
-                  ),
+                : _weather != null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _weather!.cityName,
+                            style: TextStyle(
+                              color: _isDarkMode ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 30,
+                            ),
+                          ),
+                          Lottie.asset(getWeatherAnimation(_weather!.weatherCode)),
+                          Text(
+                            '${_weather!.temperature.round()}°C',
+                            style: TextStyle(
+                              color: _isDarkMode ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 30,
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Text(
+                        'No data available',
+                        style: TextStyle(color: Colors.white),
+                      ),
       ),
     );
   }
